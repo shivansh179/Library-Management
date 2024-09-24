@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, addDoc , deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, addDoc, doc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Timestamp } from 'firebase/firestore';
+import { FaBook, FaClipboardList, FaPlusCircle, FaListAlt } from 'react-icons/fa'; // Added FaListAlt for Issued Books icon
 
 const AdminDashboard = () => {
   const [bookRequests, setBookRequests] = useState([]);
+  const [issuedBooks, setIssuedBooks] = useState([]); // New state for issued books
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [issueDate, setIssueDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
   const [remarks, setRemarks] = useState('');
+
+  const [newBookName, setNewBookName] = useState('');
+  const [newBookAuthor, setNewBookAuthor] = useState('');
+  const [newBookQuantity, setNewBookQuantity] = useState(1);
+
+  const [activeSection, setActiveSection] = useState('requests'); // Default section
 
   useEffect(() => {
     const fetchBookRequests = async () => {
@@ -17,7 +24,14 @@ const AdminDashboard = () => {
       setBookRequests(bookRequestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     };
 
+    const fetchIssuedBooks = async () => {
+      const issuedBooksCollection = collection(db, 'issueDetails'); // Fetch from issueDetails collection
+      const issuedBooksSnapshot = await getDocs(issuedBooksCollection);
+      setIssuedBooks(issuedBooksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
+
     fetchBookRequests();
+    fetchIssuedBooks(); // Fetch issued books on component mount
   }, []);
 
   const handleBookRequest = async (requestId, action) => {
@@ -25,11 +39,13 @@ const AdminDashboard = () => {
     if (action === 'rejected') {
       const reason = prompt('Please provide a reason for rejection:');
       if (!reason) return;
+
       await updateDoc(requestDoc, { status: 'rejected', rejectionReason: reason });
-      alert('Book request rejected.');
+      alert('Book request rejected and status updated.');
     } else if (action === 'accepted') {
       const bookRequest = bookRequests.find(request => request.id === requestId);
       setSelectedRequest(bookRequest);
+      setActiveSection('issue'); // Set active section to 'issue'
     }
   };
 
@@ -39,64 +55,239 @@ const AdminDashboard = () => {
       return;
     }
 
-    const issueCollectionRef = collection(db, 'issue');
-    await addDoc(issueCollectionRef, {
+    const issueDetailsCollectionRef = collection(db, 'issueDetails');
+    await addDoc(issueDetailsCollectionRef, {
       userName: selectedRequest.userName,
       bookTitle: selectedRequest.bookTitle,
+      author: selectedRequest.authorName,
       issueDate: Timestamp.fromDate(new Date(issueDate)),
       returnDate: Timestamp.fromDate(new Date(returnDate)),
       remarks: remarks || '',
     });
 
-    await updateDoc(doc(db, 'bookRequests', selectedRequest.id), { status: 'accepted' });
-    alert('Book issued successfully.');
+    await deleteDoc(doc(db, 'bookRequests', selectedRequest.id));
+    alert('Book issued successfully and request removed from book requests.');
     setSelectedRequest(null);
+    setIssueDate('');
+    setReturnDate('');
+    setRemarks('');
+    
+    // Fetch issued books again after issuing a book
+    const issuedBooksCollection = collection(db, 'issueDetails');
+    const issuedBooksSnapshot = await getDocs(issuedBooksCollection);
+    setIssuedBooks(issuedBooksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  };
+
+  const addNewBook = async () => {
+    if (!newBookName || !newBookAuthor || newBookQuantity < 1) {
+      alert('Please fill in all fields correctly.');
+      return;
+    }
+
+    const booksCollectionRef = collection(db, 'books');
+    await addDoc(booksCollectionRef, {
+      bookName: newBookName,
+      author: newBookAuthor,
+      quantity: newBookQuantity,
+    });
+
+    alert('New book added successfully.');
+    setNewBookName('');
+    setNewBookAuthor('');
+    setNewBookQuantity(1);
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-      {/* Book Requests */}
-      <div className="mt-6">
-        <h2 className="text-xl font-semibold">Book Requests</h2>
-        <ul className="divide-y divide-gray-200">
-          {bookRequests.map(request => (
-            <li key={request.id} className="py-2 flex justify-between">
-              <span>{request.bookTitle} requested by {request.userName}</span>
-              <div className="flex space-x-4">
-                <button onClick={() => handleBookRequest(request.id, 'accepted')} className="p-2 bg-green-500 text-white rounded">
-                  Issue Book
-                </button>
-                <button onClick={() => handleBookRequest(request.id, 'rejected')} className="p-2 bg-red-500 text-white rounded">
-                  Reject
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+    <div className="p-6 bg-gradient-to-r from-purple-300 to-blue-300 min-h-screen">
+      <h1 className="text-4xl font-bold text-center text-white">Admin Dashboard</h1>
+
+      <div className="mt-8 flex justify-around">
+        <button
+          onClick={() => setActiveSection('requests')}
+          className={`flex items-center p-3 rounded-lg transition duration-300 ${
+            activeSection === 'requests' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'
+          }`}
+        >
+          <FaClipboardList className="mr-2" /> Book Requests
+        </button>
+        <button
+          onClick={() => setActiveSection('issue')}
+          className={`flex items-center p-3 rounded-lg transition duration-300 ${
+            activeSection === 'issue' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'
+          }`}
+        >
+          <FaBook className="mr-2" /> Issue Book
+        </button>
+        <button
+          onClick={() => setActiveSection('add')}
+          className={`flex items-center p-3 rounded-lg transition duration-300 ${
+            activeSection === 'add' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'
+          }`}
+        >
+          <FaPlusCircle className="mr-2" /> Add New Book
+        </button>
+        <button
+          onClick={() => setActiveSection('issued')} // Button for displaying issued books
+          className={`flex items-center p-3 rounded-lg transition duration-300 ${
+            activeSection === 'issued' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'
+          }`}
+        >
+          <FaListAlt className="mr-2" /> Issued Books
+        </button>
       </div>
 
-      {/* Issue Book Form */}
-      {selectedRequest && (
-        <div className="mt-6">
-          <h2 className="text-xl font-semibold">Issue Book</h2>
+      {activeSection === 'requests' && (
+        <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-semibold text-gray-800">Book Requests</h2>
+          <ul className="divide-y divide-gray-200">
+            {bookRequests.map(request => (
+              <li key={request.id} className="py-4">
+                <div className="mb-2">
+                  <p><strong className="text-blue-600">Book Title:</strong> {request.bookTitle}</p>
+                  <p><strong className="text-blue-600">Author:</strong> {request.authorName}</p>
+                  <p><strong className="text-blue-600">User Name:</strong> {request.userName}</p>
+                  <p><strong className="text-blue-600">User Email:</strong> {request.userEmail}</p>
+                  <p><strong className="text-blue-600">Requested At:</strong> 
+                    {request.requestTime ? 
+                      new Date(request.requestTime.seconds * 1000).toLocaleString() :
+                      'N/A'}
+                  </p>
+                  <p><strong className="text-blue-600">Status:</strong> {request.status}</p>
+                  {request.rejectionReason && (
+                    <p><strong className="text-red-500">Rejection Reason:</strong> {request.rejectionReason}</p>
+                  )}
+                </div>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => handleBookRequest(request.id, 'accepted')}
+                    className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition duration-300"
+                  >
+                    Issue Book
+                  </button>
+                  <button
+                    onClick={() => handleBookRequest(request.id, 'rejected')}
+                    className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition duration-300"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {activeSection === 'issue' && selectedRequest && (
+        <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-semibold text-gray-800">Issue Book</h2>
           <div className="mt-4">
-            <p><strong>Book Title:</strong> {selectedRequest.bookTitle}</p>
-            <p><strong>Author:</strong> {selectedRequest.author}</p>
+            <p><strong className="text-blue-600">Book Title:</strong> {selectedRequest.bookTitle}</p>
+            <p><strong className="text-blue-600">Author:</strong> {selectedRequest.authorName}</p>
             <label className="block mt-4">
-              Issue Date: 
-              <input type="date" value={issueDate} min={new Date().toISOString().split('T')[0]} onChange={e => setIssueDate(e.target.value)} className="border p-2" />
+              Issue Date:
+              <input
+                type="date"
+                value={issueDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e => setIssueDate(e.target.value)}
+                className="block w-full mt-1 p-2 border rounded"
+              />
             </label>
             <label className="block mt-4">
-              Return Date (max 15 days from issue date): 
-              <input type="date" value={returnDate} max={new Date(new Date(issueDate).setDate(new Date(issueDate).getDate() + 15)).toISOString().split('T')[0]} onChange={e => setReturnDate(e.target.value)} className="border p-2" />
+              Return Date:
+              <input
+                type="date"
+                value={returnDate}
+                min={issueDate}
+                onChange={e => setReturnDate(e.target.value)}
+                className="block w-full mt-1 p-2 border rounded"
+              />
             </label>
             <label className="block mt-4">
-              Remarks (optional):
-              <textarea value={remarks} onChange={e => setRemarks(e.target.value)} className="border p-2" />
+              Remarks:
+              <textarea
+                value={remarks}
+                onChange={e => setRemarks(e.target.value)}
+                className="block w-full mt-1 p-2 border rounded"
+              />
             </label>
-            <button onClick={issueBook} className="mt-4 bg-blue-500 text-white p-2 rounded">Issue Book</button>
+            <button
+              onClick={issueBook}
+              className="mt-4 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-300"
+            >
+              Issue Boddokddd
+            </button>
           </div>
+        </div>
+      )}
+
+      {activeSection === 'add' && (
+        <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-semibold text-gray-800">Add New Book</h2>
+          <div className="mt-4">
+            <label className="block">
+              Book Name:
+              <input
+                type="text"
+                value={newBookName}
+                onChange={e => setNewBookName(e.target.value)}
+                className="block w-full mt-1 p-2 border rounded"
+              />
+            </label>
+            <label className="block mt-4">
+              Author:
+              <input
+                type="text"
+                value={newBookAuthor}
+                onChange={e => setNewBookAuthor(e.target.value)}
+                className="block w-full mt-1 p-2 border rounded"
+              />
+            </label>
+            <label className="block mt-4">
+              Quantity:
+              <input
+                type="number"
+                value={newBookQuantity}
+                onChange={e => setNewBookQuantity(e.target.value)}
+                min={1}
+                className="block w-full mt-1 p-2 border rounded"
+              />
+            </label>
+            <button
+              onClick={addNewBook}
+              className="mt-4 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-300"
+            >
+              Add Book
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeSection === 'issued' && (
+        <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-semibold text-gray-800">Issued Books</h2>
+          <ul className="divide-y divide-gray-200">
+            {issuedBooks.map(book => (
+              <li key={book.id} className="py-4">
+                <div className="mb-2">
+                  <p><strong className="text-blue-600">Book Title:</strong> {book.bookTitle}</p>
+                  <p><strong className="text-blue-600">Author:</strong> {book.author}</p>
+                  <p><strong className="text-blue-600">Issued To:</strong> {book.userName}</p>
+                  <p><strong className="text-blue-600">Issue Date:</strong> 
+                    {book.issueDate ? 
+                      new Date(book.issueDate.seconds * 1000).toLocaleDateString() :
+                      'N/A'}
+                  </p>
+                  <p><strong className="text-blue-600">Return Date:</strong> 
+                    {book.returnDate ? 
+                      new Date(book.returnDate.seconds * 1000).toLocaleDateString() :
+                      'N/A'}
+                  </p>
+                  <p><strong className="text-blue-600">Remarks:</strong> {book.remarks}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

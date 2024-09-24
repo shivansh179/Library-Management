@@ -5,6 +5,7 @@ import AdminDashboard from './components/AdminDashboard';
 import UserDashboard from './components/UserDashboard';
 import AdminRoute from './routes/AdminRoute';
 import UserRoute from './routes/UserRoute';
+import FinePage from './components/FinePage';
  
 function App() {
   return (
@@ -22,6 +23,8 @@ function App() {
         {/* User Dashboard */}
         <Route path="/user" element={<UserRoute />}>
           <Route path="/user/dashboard" element={<UserDashboard />} />
+          <Route path="/user/fine" element={<FinePage/>} />
+
         </Route>
       </Routes>
     </Router>

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '../firebase';
+import { auth } from '../firebase';
 import { useNavigate } from 'react-router-dom';
-import { getDoc, doc } from 'firebase/firestore'; 
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
@@ -25,57 +24,46 @@ const SignIn = () => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userEmail = userCredential.user.email;
-      
+
       // Check if email is in the list of admins
       if (admins.includes(userEmail)) {
         // Navigate to admin dashboard if email is an admin
         navigate('/admin/dashboard');
       } else {
-        // // Check if the user is a valid user in Firestore
-        // const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-
-        // // Log the userDoc to inspect its structure
-        // console.log('User Document Exists:', userDoc.exists());
-
-        // if (userDoc.exists()) {
-        //   const userData = userDoc.data();
-        //   console.log('User Data:', userData); // Log user data to inspect
-
-          // Check user role
-          // if (userData.role === 'user') {
-            navigate('/user/dashboard');
-          // } else {
-          //   setError('User role is not valid');
-          // }
-        // } else {
-        //   setError('User not found in Firestore');
-        // }
-      // }
-    }
+        navigate('/user/dashboard');
+      }
     } catch (error) {
       setError(error.message);
     }
   };
-  
+
   return (
-    <div className="p-4 bg-red-400">
-      <h1 className="text-2xl">Sign In</h1>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-        className="border p-2 mt-4"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Password"
-        className="border p-2 mt-4"
-      />
-      <button onClick={handleSignIn} className="p-2 mt-4 bg-blue-500 text-white">Sign In</button>
-      {error && <p className="text-red-500">{error}</p>}
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-purple-500 to-pink-500">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 className="text-3xl font-bold text-center text-gray-800">Sign In</h1>
+        <div className="mt-4">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            className="border border-gray-300 rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-150"
+          />
+        </div>
+        <div className="mt-4">
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            className="border border-gray-300 rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-150"
+          />
+        </div>
+        <button onClick={handleSignIn} className="mt-6 p-2 bg-blue-600 text-white rounded-md w-full hover:bg-blue-500 transition duration-150">
+          Sign In
+        </button>
+        {error && <p className="mt-4 text-red-500 text-center">{error}</p>}
+      </div>
     </div>
   );
 };
