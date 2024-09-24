@@ -14,6 +14,7 @@ const UserDashboard = () => {
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [activeSection, setActiveSection] = useState('availableBooks');
   const [user] = useState({ name: 'John Doe', email: 'john@example.com' }); // Replace with actual user data
+  const [errorMessage, setErrorMessage] = useState('');
 
   const fetchBooks = async () => {
     const booksCollection = await getDocs(collection(db, 'books'));
@@ -33,6 +34,12 @@ const UserDashboard = () => {
   };
 
   const applyForBook = async (book) => {
+    const alreadyIssued = issuedBooks.some(issued => issued.bookTitle === book.bookName && issued.userName === user.name);
+    if (alreadyIssued) {
+      setErrorMessage(`You have already issued "${book.bookName}".`);
+      return;
+    }
+
     const alreadyApplied = bookRequests.some(request => request.bookTitle === book.bookName && request.userEmail === user.email);
     if (alreadyApplied) return;
 
@@ -51,12 +58,12 @@ const UserDashboard = () => {
     });
 
     alert(`Applied for ${book.bookName}`);
-    fetchBookRequests(); // Refresh book requests after applying
+    fetchBookRequests();
   };
 
   const handleReturnBook = (book) => {
     setReturnBookId(book.id);
-    setReturnDate(new Date().toISOString().split("T")[0]); // Set return date to current date
+    setReturnDate(new Date().toISOString().split("T")[0]);
     setShowReturnForm(true);
   };
 
@@ -64,23 +71,26 @@ const UserDashboard = () => {
     const today = new Date();
     const returnDate = new Date(issuedBook.returnDate.seconds * 1000);
     const diffTime = today - returnDate;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Convert time difference to days
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays * 10 : 0; // Assume a fine of $10 per day
   };
 
   const returnBook = async () => {
     const issuedBook = issuedBooks.find(book => book.id === returnBookId);
     const fineAmount = calculateFine(issuedBook);
+    navigate("/user/fine"); // Navigate to the fine page after confirming the return
     
     if (fineAmount > 0) {
       alert(`You have a fine of $${fineAmount} for returning late.`);
-      // Optionally, redirect to a fine payment page here
+      setFine(fineAmount);
+      navigate("/user/fine"); // Navigate to the fine page after confirming the return
+    } else {
+      // Delete issued book details after successful return and no fine
+      await deleteDoc(doc(db, 'issueDetails', returnBookId));
+      alert('Book returned successfully!');
+      fetchIssuedBooks();
     }
-
-    await deleteDoc(doc(db, 'issueDetails', returnBookId));
-    alert('Book returned successfully!');
     setShowReturnForm(false);
-    fetchIssuedBooks(); // Refresh issued books after returning
   };
 
   useEffect(() => {
@@ -89,13 +99,12 @@ const UserDashboard = () => {
     fetchIssuedBooks();
   }, []);
 
-  const handleFine = () => {
-    navigate("/user/fine");
-  };
-
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <h1 className="text-4xl font-bold text-center mb-6">User Dashboard</h1>
+      
+      {/* Error Message */}
+      {errorMessage && <p className="text-red-500 text-center">{errorMessage}</p>}
       
       {/* Section Navigation Buttons */}
       <div className="flex justify-center space-x-4 mb-6">
@@ -120,8 +129,7 @@ const UserDashboard = () => {
           <ul className="divide-y divide-gray-200">
             {books.map(book => {
               const userRequest = bookRequests.find(request => request.bookTitle === book.bookName && request.userEmail === user.email);
-              // Check if the book is already issued to the user
-              const alreadyIssued = issuedBooks.some(issued => issued.bookTitle === book.bookName && issued.userEmail === user.email);
+              const alreadyIssued = issuedBooks.some(issued => issued.bookTitle === book.bookName && issued.userName === user.name);
 
               return (
                 <li key={book.id} className="py-2 flex justify-between items-center">
@@ -187,8 +195,8 @@ const UserDashboard = () => {
         <div className="mt-6 border p-4 bg-white shadow-lg rounded">
           <h2 className="text-xl font-semibold">Return Book</h2>
           <p><strong>Return Date:</strong> {returnDate}</p>
-          <button onClick={returnBook} className="mt-2 p-2 bg-green-500 text-white rounded">Confirm Return</button>
-          <button onClick={() => setShowReturnForm(false)} className="mt-2 p-2 bg-gray-400 text-white rounded">Cancel</button>
+          <button onClick={returnBook} className="mt-4 p-2 bg-green-500 text-white rounded">Confirm Return</button>
+          <button onClick={() => setShowReturnForm(false)} className="mt-4 ml-2 p-2 bg-gray-300 rounded">Cancel</button>
         </div>
       )}
     </div>

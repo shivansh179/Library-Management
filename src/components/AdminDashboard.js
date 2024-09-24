@@ -71,7 +71,7 @@ const AdminDashboard = () => {
     setIssueDate('');
     setReturnDate('');
     setRemarks('');
-    
+
     // Fetch issued books again after issuing a book
     const issuedBooksCollection = collection(db, 'issueDetails');
     const issuedBooksSnapshot = await getDocs(issuedBooksCollection);
@@ -177,55 +177,63 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {activeSection === 'issue' && selectedRequest && (
-        <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-2xl font-semibold text-gray-800">Issue Book</h2>
-          <div className="mt-4">
-            <p><strong className="text-blue-600">Book Title:</strong> {selectedRequest.bookTitle}</p>
-            <p><strong className="text-blue-600">Author:</strong> {selectedRequest.authorName}</p>
-            <label className="block mt-4">
-              Issue Date:
-              <input
-                type="date"
-                value={issueDate}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={e => setIssueDate(e.target.value)}
-                className="block w-full mt-1 p-2 border rounded"
-              />
-            </label>
-            <label className="block mt-4">
-              Return Date:
-              <input
-                type="date"
-                value={returnDate}
-                min={issueDate}
-                onChange={e => setReturnDate(e.target.value)}
-                className="block w-full mt-1 p-2 border rounded"
-              />
-            </label>
-            <label className="block mt-4">
-              Remarks:
-              <textarea
-                value={remarks}
-                onChange={e => setRemarks(e.target.value)}
-                className="block w-full mt-1 p-2 border rounded"
-              />
-            </label>
-            <button
-              onClick={issueBook}
-              className="mt-4 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-300"
-            >
-              Issue Boddokddd
-            </button>
-          </div>
-        </div>
-      )}
+{activeSection === 'issue' && selectedRequest && (
+  <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
+    <h2 className="text-2xl font-semibold text-gray-800">Issue Book</h2>
+    <div className="mt-4">
+      <p><strong className="text-blue-600">Book Title:</strong> {selectedRequest.bookTitle}</p>
+      <p><strong className="text-blue-600">Author:</strong> {selectedRequest.authorName}</p>
+      <label className="block mt-4">
+        Issue Date:
+        <input
+          type="date"
+          value={issueDate}
+          min={new Date().toISOString().split('T')[0]}
+          onChange={e => {
+            const selectedDate = e.target.value;
+            setIssueDate(selectedDate);
+
+            // Calculate return date as 15 days from selected issue date
+            const returnDate = new Date(selectedDate);
+            returnDate.setDate(returnDate.getDate() + 15);
+            setReturnDate(returnDate.toISOString().split('T')[0]); // Update return date state
+          }}
+          className="block w-full mt-1 p-2 border rounded"
+        />
+      </label>
+      <label className="block mt-4">
+        Return Date:
+        <input
+          type="date"
+          value={returnDate}
+          readOnly // Make this input read-only as it's auto-calculated
+          className="block w-full mt-1 p-2 border rounded bg-gray-200" // Add styling to indicate it's read-only
+        />
+      </label>
+      <label className="block mt-4">
+        Remarks (Optional):
+        <textarea
+          value={remarks}
+          onChange={e => setRemarks(e.target.value)}
+          className="block w-full mt-1 p-2 border rounded"
+        />
+      </label>
+      <button
+        onClick={issueBook}
+        className="mt-4 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-300"
+      >
+        Confirm Issue
+      </button>
+    </div>
+  </div>
+)}
+
 
       {activeSection === 'add' && (
         <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-semibold text-gray-800">Add New Book</h2>
           <div className="mt-4">
-            <label className="block">
+            <label className="block mt-4">
               Book Name:
               <input
                 type="text"
@@ -235,7 +243,7 @@ const AdminDashboard = () => {
               />
             </label>
             <label className="block mt-4">
-              Author:
+              Author Name:
               <input
                 type="text"
                 value={newBookAuthor}
@@ -248,9 +256,9 @@ const AdminDashboard = () => {
               <input
                 type="number"
                 value={newBookQuantity}
-                onChange={e => setNewBookQuantity(e.target.value)}
-                min={1}
+                onChange={e => setNewBookQuantity(Number(e.target.value))}
                 className="block w-full mt-1 p-2 border rounded"
+                min="1"
               />
             </label>
             <button
@@ -263,28 +271,26 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {activeSection === 'issued' && (
+      {activeSection === 'issued' && ( // New section for displaying issued books
         <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-semibold text-gray-800">Issued Books</h2>
           <ul className="divide-y divide-gray-200">
-            {issuedBooks.map(book => (
-              <li key={book.id} className="py-4">
-                <div className="mb-2">
-                  <p><strong className="text-blue-600">Book Title:</strong> {book.bookTitle}</p>
-                  <p><strong className="text-blue-600">Author:</strong> {book.author}</p>
-                  <p><strong className="text-blue-600">Issued To:</strong> {book.userName}</p>
-                  <p><strong className="text-blue-600">Issue Date:</strong> 
-                    {book.issueDate ? 
-                      new Date(book.issueDate.seconds * 1000).toLocaleDateString() :
-                      'N/A'}
-                  </p>
-                  <p><strong className="text-blue-600">Return Date:</strong> 
-                    {book.returnDate ? 
-                      new Date(book.returnDate.seconds * 1000).toLocaleDateString() :
-                      'N/A'}
-                  </p>
-                  <p><strong className="text-blue-600">Remarks:</strong> {book.remarks}</p>
-                </div>
+            {issuedBooks.map(issue => (
+              <li key={issue.id} className="py-4">
+                <p><strong className="text-blue-600">User Name:</strong> {issue.userName}</p>
+                <p><strong className="text-blue-600">Book Title:</strong> {issue.bookTitle}</p>
+                <p><strong className="text-blue-600">Author:</strong> {issue.author}</p>
+                <p><strong className="text-blue-600">Issue Date:</strong> 
+                  {issue.issueDate ? 
+                    new Date(issue.issueDate.seconds * 1000).toLocaleString() :
+                    'N/A'}
+                </p>
+                <p><strong className="text-blue-600">Return Date:</strong> 
+                  {issue.returnDate ? 
+                    new Date(issue.returnDate.seconds * 1000).toLocaleString() :
+                    'N/A'}
+                </p>
+                <p><strong className="text-blue-600">Remarks:</strong> {issue.remarks || 'N/A'}</p>
               </li>
             ))}
           </ul>
